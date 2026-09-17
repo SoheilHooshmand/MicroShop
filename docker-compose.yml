@@ -71,6 +71,29 @@ services:
       timeout: 5s
       retries: 5
 
+  catalog-service:
+    build:
+      context: ./services/catalog-service
+    container_name: microshop-catalog-service
+
+    command: >
+      sh -c "
+      python manage.py migrate &&
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 3
+      "
+    
+    env_file:
+      - services/catalog-service/.env
+
+    ports:
+      - "8001:8000"
+
+    depends_on:
+      catalog_db:
+        condition: service_healthy
+
 
 
 volumes:

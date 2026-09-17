@@ -18,14 +18,14 @@ class RegistrationSerializer(serializers.ModelSerializer):
             'password',
         ]
 
-        def create(self, validated_data):
-            user = User.objects.create_user(
-                username=validated_data['username'],
-                email=validated_data['email'],
-                password=validated_data['password']
-            )
+    def create(self, validated_data):
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+        )
 
-            return user
+        return user
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
@@ -47,7 +47,7 @@ class LoginSerializer(serializers.Serializer):
                 "Invalid username or password."
             )
 
-        if user.is_active:
+        if not user.is_active:
             raise serializers.ValidationError(
                 "User account is disabled."
             )

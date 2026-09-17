@@ -1,0 +1,51 @@
+services:
+
+  auth_db:
+    image: postgres:16
+    container_name: microshop-auth-db
+
+
+    env_file:
+      - ./services/auth-service/.env
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: [
+        "CMD-SHELL",
+        "pg_isready -U auth_user -d auth_db"
+      ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+
+    container_name: microshop-auth-service
+
+    command: >
+      sh -c "
+      python manage.py migrate &&
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 3
+      "
+
+    env_file:
+      - services/auth-service/.env
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      auth_db:
+        condition: service_healthy
+
+volumes:
+  auth_postgres_data:

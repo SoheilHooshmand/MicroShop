@@ -33,9 +33,9 @@ class LoginSerializer(serializers.Serializer):
         write_only=True,
     )
 
-    def validate(self, data):
-        username = data.get('username')
-        password = data.get('password')
+    def validate(self, attrs):
+        username = attrs.get('username')
+        password = attrs.get('password')
 
         user = authenticate(
             username=username,
@@ -52,9 +52,9 @@ class LoginSerializer(serializers.Serializer):
                 "User account is disabled."
             )
 
-        data["user"] = user
+        attrs["user"] = user
 
-        return data
+        return attrs
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:

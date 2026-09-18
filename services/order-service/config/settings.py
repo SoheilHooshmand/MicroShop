@@ -141,3 +141,8 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+CATALOG_SERVICE_URL = os.getenv(
+    "CATALOG_SERVICE_URL",
+    "http://127.0.0.1:8001",
+)

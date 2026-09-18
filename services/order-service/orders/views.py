@@ -5,18 +5,10 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from django.http import JsonResponse
-
 from .catalog_client import CatalogClient, CatalogServiceError
 from .models import Order, OrderItem
 from .serializers import OrderSerializer
 
-
-def health_check(request):
-    return JsonResponse({
-        "status": "ok",
-        "service": "order-service",
-    })
 
 class OrderCreateView(APIView):
 

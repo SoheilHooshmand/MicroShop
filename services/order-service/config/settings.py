@@ -146,3 +146,13 @@ CATALOG_SERVICE_URL = os.getenv(
     "CATALOG_SERVICE_URL",
     "http://127.0.0.1:8001",
 )
+
+INVENTORY_SERVICE_URL = os.getenv(
+    "INVENTORY_SERVICE_URL",
+    "http://127.0.0.1:8002",
+)
+
+PAYMENT_SERVICE_URL = os.getenv(
+    "PAYMENT_SERVICE_URL",
+    "http://127.0.0.1:8004",
+)

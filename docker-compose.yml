@@ -243,6 +243,30 @@ services:
       timeout: 5s
       retries: 5
 
+  notification-service:
+    build:
+      context: ./services/notification-service
+
+    container_name: microshop-notification-service
+
+    command: >
+      sh -c "
+      python manage.py migrate &&
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 3
+      "
+
+    env_file:
+      - services/notification-service/.env
+
+    ports:
+      - "8005:8000"
+
+    depends_on:
+      notification-db:
+        condition: service_healthy
+
 
 volumes:
   auth_postgres_data:

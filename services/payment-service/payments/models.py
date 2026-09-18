@@ -56,3 +56,11 @@ class Payment(models.Model):
             f"Payment #{self.id} "
             f"- Order #{self.order_id}"
         )
+
+
+class ProcessedEvent(models.Model):
+    event_id = models.UUIDField(unique=True)
+    processed_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return str(self.event_id)

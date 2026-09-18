@@ -142,6 +142,8 @@ services:
     depends_on:
       inventory-db:
           condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   order-db:
     image: postgres:16
@@ -183,6 +185,9 @@ services:
       catalog-service:
         condition: service_started
 
+      rabbitmq:
+        condition: service_healthy
+
   payment-db:
     image: postgres:16
     container_name: microshop-payment-db
@@ -218,6 +223,9 @@ services:
 
     depends_on:
       payment-db:
+        condition: service_healthy
+
+      rabbitmq:
         condition: service_healthy
 
   notification-db:
@@ -267,6 +275,116 @@ services:
       notification-db:
         condition: service_healthy
 
+      rabbitmq:
+        condition: service_healthy
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: microshop-rabbitmq
+
+    env_file:
+      - .env
+
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  inventory-consumer:
+    build:
+      context: ./services/inventory-service
+
+    container_name: microshop-inventory-consumer
+
+    command:
+      [
+        "python",
+        "manage.py",
+        "consume_events"
+      ]
+
+    env_file:
+      - services/inventory-service/.env
+
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  order-consumer:
+    build:
+      context: ./services/order-service
+
+    container_name: microshop-order-consumer
+
+    command:
+      [
+        "python",
+        "manage.py",
+        "consume_events"
+      ]
+
+    env_file:
+      - services/order-service/.env
+
+    depends_on:
+      order-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  payment-consumer:
+    build:
+      context: ./services/payment-service
+
+    container_name: microshop-payment-consumer
+
+    command:
+      [
+        "python",
+        "manage.py",
+        "consume_events"
+      ]
+
+    env_file:
+      - services/payment-service/.env
+
+    depends_on:
+      payment-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  notification-consumer:
+    build:
+      context: ./services/notification-service
+
+    container_name: microshop-notification-consumer
+
+    command:
+      [
+        "python",
+        "manage.py",
+        "consume_events"
+      ]
+
+    env_file:
+      - services/notification-service/.env
+
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   auth_postgres_data:
@@ -275,3 +393,4 @@ volumes:
   order_postgres_data:
   payment_postgres_data:
   notification_postgres_data:
+  rabbitmq_data:

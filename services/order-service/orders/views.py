@@ -10,18 +10,10 @@ from .catalog_client import(
     CatalogServiceError
 )
 
-from .inventory_client import (
-    InventoryClient,
-    InventoryServiceError,
-)
-
-from .payment_client import (
-    PaymentClient,
-    PaymentServiceError,
-)
-
 from .models import Order, OrderItem
 from .serializers import OrderSerializer
+from .events import publish_event
+
 
 
 class OrderCreateView(APIView):
@@ -29,7 +21,7 @@ class OrderCreateView(APIView):
     def post(self, request):
 
         user_id = request.data.get("user_id")
-        items = request.data.get("items")
+        items = request.data.get("items", [])
 
         if not user_id:
             return Response(
@@ -39,230 +31,96 @@ class OrderCreateView(APIView):
 
         if not items:
             return Response(
-                {"detail": "items are required."},
+                {"detail": "At least one item is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not isinstance(items, list):
-            return Response(
-                {"detail": "items must be a list."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # Catalog is still used only to obtain
+        # authoritative product snapshots.
 
         catalog_client = CatalogClient()
 
-        prepared_items = []
-        total_price = Decimal("0.00")
-
-        # --------------------------------
-        # Step 1: Get products from Catalog
-        # --------------------------------
+        order_items = []
+        total_price = 0
 
         for item in items:
 
-            product_id = item.get("product_id")
-            quantity = item.get("quantity")
+            product_id = item["product_id"]
+            quantity = item["quantity"]
 
-            if not product_id or not quantity:
+            product = catalog_client.get_product(product_id)
+
+            if not product.get("is_active", False):
                 return Response(
                     {
                         "detail": (
-                            "product_id and quantity "
-                            "are required."
+                            f"Product {product_id} is not active."
                         )
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if quantity <= 0:
-                return Response(
-                    {
-                        "detail": (
-                            "quantity must be "
-                            "greater than 0."
-                        )
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            unit_price = product["price"]
+            product_name = product["name"]
 
-            try:
-                product = catalog_client.get_product(
-                    product_id
-                )
-
-            except CatalogServiceError as exc:
-                return Response(
-                    {"detail": str(exc)},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            if not product.get("is_active"):
-                return Response(
-                    {
-                        "detail": (
-                            f"Product {product_id} "
-                            "is not active."
-                        )
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            unit_price = Decimal(
-                str(product["price"])
+            item_total = (
+                float(unit_price) * quantity
             )
 
-            item_total = unit_price * quantity
+            total_price += item_total
 
-            prepared_items.append(
+            order_items.append(
                 {
-                    "product_id": product["id"],
-                    "product_name": product["name"],
+                    "product_id": product_id,
+                    "product_name": product_name,
                     "unit_price": unit_price,
                     "quantity": quantity,
                     "total_price": item_total,
                 }
             )
 
-            total_price += item_total
-
-        # --------------------------------
-        # Step 2: Create Order
-        # --------------------------------
-
         with transaction.atomic():
 
             order = Order.objects.create(
                 user_id=user_id,
-                status=Order.STATUS_PENDING,
+                status="PENDING",
                 total_price=total_price,
             )
 
-            OrderItem.objects.bulk_create(
-                [
-                    OrderItem(
-                        order=order,
-                        **item,
-                    )
-                    for item in prepared_items
-                ]
-            )
-
-        # --------------------------------
-        # Step 3: Reserve Inventory
-        # --------------------------------
-
-        inventory_client = InventoryClient()
-
-        reserved_items = []
-
-        try:
-
-            for item in prepared_items:
-
-                inventory_client.reserve(
+            for item in order_items:
+                OrderItem.objects.create(
+                    order=order,
                     product_id=item["product_id"],
+                    product_name=item["product_name"],
+                    unit_price=item["unit_price"],
                     quantity=item["quantity"],
+                    total_price=item["total_price"],
                 )
 
-                reserved_items.append(item)
-
-        except InventoryServiceError as exc:
-
-            # Compensation
-            for item in reserved_items:
-                try:
-                    inventory_client.release(
-                        product_id=item["product_id"],
-                        quantity=item["quantity"],
-                    )
-                except InventoryServiceError:
-                    pass
-
-            order.status = (
-                Order.STATUS_INVENTORY_RESERVATION_FAILED
-            )
-
-            order.save(
-                update_fields=[
-                    "status",
-                    "updated_at",
-                ]
-            )
-
-            return Response(
-                {
-                    "detail": str(exc),
-                    "order_id": order.id,
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        # --------------------------------
-        # Step 4: Create Payment
-        # --------------------------------
-
-        payment_client = PaymentClient()
-
-        try:
-
-            payment = payment_client.create_payment(
-                order_id=order.id,
-                user_id=user_id,
-                amount=total_price,
-            )
-
-        except PaymentServiceError as exc:
-
-            # Compensation
-            for item in reserved_items:
-                try:
-                    inventory_client.release(
-                        product_id=item["product_id"],
-                        quantity=item["quantity"],
-                    )
-                except InventoryServiceError:
-                    pass
-
-            order.status = (
-                Order.STATUS_PAYMENT_FAILED
-            )
-
-            order.save(
-                update_fields=[
-                    "status",
-                    "updated_at",
-                ]
-            )
-
-            return Response(
-                {
-                    "detail": str(exc),
-                    "order_id": order.id,
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        # --------------------------------
-        # Step 5: Update Order
-        # --------------------------------
-
-        order.status = (
-            Order.STATUS_PAYMENT_PENDING
-        )
-
-        order.save(
-            update_fields=[
-                "status",
-                "updated_at",
-            ]
+        publish_event(
+            "order.created",
+            {
+                "order_id": order.id,
+                "user_id": order.user_id,
+                "total_price": str(order.total_price),
+                "items": [
+                    {
+                        "product_id": item["product_id"],
+                        "quantity": item["quantity"],
+                    }
+                    for item in order_items
+                ],
+            },
         )
 
         return Response(
             {
-                "order": OrderSerializer(
-                    order
-                ).data,
-                "payment": payment,
+                "order_id": order.id,
+                "status": order.status,
+                "total_price": str(order.total_price),
+                "message": (
+                    "Order created and processing started."
+                ),
             },
             status=status.HTTP_201_CREATED,
         )

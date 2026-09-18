@@ -30,3 +30,10 @@ class Inventory(models.Model):
             f"Product {self.product_id} "
             f"({self.available_quantity} available)"
         )
+
+class ProcessedEvent(models.Model):
+    event_id = models.UUIDField(unique=True)
+    processed_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return str(self.event_id)

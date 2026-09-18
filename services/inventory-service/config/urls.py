@@ -17,6 +17,44 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
+from inventory.views import (
+    InventoryCreateView,
+    InventoryDetailView,
+    ReserveInventoryView,
+    ReleaseInventoryView,
+    health_check,
+)
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    path(
+        "api/inventory/",
+        InventoryCreateView.as_view(),
+        name="inventory-create",
+    ),
+
+    path(
+        "api/inventory/<int:product_id>/",
+        InventoryDetailView.as_view(),
+        name="inventory-detail",
+    ),
+
+    path(
+        "api/inventory/reserve/",
+        ReserveInventoryView.as_view(),
+        name="inventory-reserve",
+    ),
+
+    path(
+        "api/inventory/release/",
+        ReleaseInventoryView.as_view(),
+        name="inventory-release",
+    ),
+
+    path(
+        "health/",
+        health_check,
+        name="health",
+    ),
 ]

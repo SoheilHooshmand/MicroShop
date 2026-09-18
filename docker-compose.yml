@@ -159,6 +159,29 @@ services:
       timeout: 5s
       retries: 5
 
+  order-service:
+    build:
+      context: ./services/order-service
+    container_name: microshop-order-service
+    command: >
+      sh -c "
+      python manage.py migrate &&
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 3
+      "
+    env_file:
+      - services/order-service/.env
+
+    ports:
+      - "8003:8000"
+
+    depends_on:
+      order-db:
+        condition: service_healthy
+
+      catalog-service:
+        condition: service_started
 
 volumes:
   auth_postgres_data:

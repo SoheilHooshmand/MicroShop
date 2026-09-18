@@ -94,8 +94,33 @@ services:
       catalog_db:
         condition: service_healthy
 
+  inventory-db:
+    image: postgres:16
+
+    container_name: microshop-inventory-db
+
+    env_file:
+      - services/inventory-service/.env
+
+    volumes:
+      - inventory_postgres_data:/var/lib/postgresql/data
+
+    ports:
+      - "5435:5432"
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U inventory_user -d inventory_db"
+        ]
+
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 
 volumes:
   auth_postgres_data:
   catalog_postgres_data:
+  inventory_postgres_data:

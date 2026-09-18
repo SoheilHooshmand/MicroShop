@@ -199,6 +199,27 @@ services:
       timeout: 5s
       retries: 5
 
+  payment-service:
+    build:
+      context: ./services/payment-service
+    container_name: microshop-payment-service
+    command: >
+      sh -c "
+      python manage.py migrate &&
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 3
+      "
+    env_file:
+      - services/payment-service/.env
+
+    ports:
+      - "8004:8000"
+
+    depends_on:
+      payment-db:
+        condition: service_healthy
+
 volumes:
   auth_postgres_data:
   catalog_postgres_data:

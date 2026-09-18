@@ -15,7 +15,7 @@ from .serializers import OrderSerializer
 def health_check(request):
     return JsonResponse({
         "status": "ok",
-        "service": "inventory-service",
+        "service": "order-service",
     })
 
 class OrderCreateView(APIView):

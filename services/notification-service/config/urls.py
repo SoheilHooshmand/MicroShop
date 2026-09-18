@@ -15,8 +15,25 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+
+from notifications.views import health_check
+
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+
+    path(
+        "admin/",
+        admin.site.urls,
+    ),
+
+    path(
+        "api/notifications/",
+        include("notifications.urls"),
+    ),
+
+    path(
+        "health/",
+        health_check,
+    ),
 ]

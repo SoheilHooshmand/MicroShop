@@ -5,9 +5,18 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from django.http import JsonResponse
+
 from .catalog_client import CatalogClient, CatalogServiceError
 from .models import Order, OrderItem
 from .serializers import OrderSerializer
+
+
+def health_check(request):
+    return JsonResponse({
+        "status": "ok",
+        "service": "inventory-service",
+    })
 
 class OrderCreateView(APIView):
 
@@ -132,5 +141,22 @@ class OrderDetailView(APIView):
             )
 
         serializer = OrderSerializer(order)
+
+        return Response(serializer.data)
+
+
+class OrderListView(APIView):
+
+    def get(self, request):
+        orders = (
+            Order.objects
+            .prefetch_related("items")
+            .order_by("-created_at")
+        )
+
+        serializer = OrderSerializer(
+            orders,
+            many=True,
+        )
 
         return Response(serializer.data)

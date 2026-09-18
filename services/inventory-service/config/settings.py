@@ -91,18 +91,15 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         "NAME": os.getenv(
             "DATABASE_NAME",
-            "inventory_db"
         ),
         "USER": os.getenv(
             "DATABASE_USER",
-            "inventory_user"
         ),
         "PASSWORD": os.getenv(
             "DATABASE_PASSWORD",
-            "inventory_password"
         ),
-        "HOST": '127.0.0.1',
-        "PORT": '5435',
+        "HOST": os.getenv("DATABASE_HOST"),
+        "PORT": os.getenv("DATABASE_PORT"),
     }
 }
 

@@ -119,6 +119,31 @@ services:
       timeout: 5s
       retries: 5
 
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+
+    container_name: microshop-inventory-service
+
+    command: >
+      sh -c "
+      python manage.py migrate &&
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 3
+      "
+
+    env_file:
+      - ./services/inventory-service/.env
+
+    ports:
+      - "8002:8000"
+
+    depends_on:
+      inventory-db:
+          condition: service_healthy
+
+
 
 volumes:
   auth_postgres_data:

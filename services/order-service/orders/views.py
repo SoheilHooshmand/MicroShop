@@ -12,7 +12,7 @@ from .catalog_client import(
 
 from .models import Order, OrderItem
 from .serializers import OrderSerializer
-from .events import publish_event
+from .events import create_outbox_event
 
 
 
@@ -97,22 +97,27 @@ class OrderCreateView(APIView):
                     total_price=item["total_price"],
                 )
 
-        publish_event(
-            "order.created",
-            {
-                "order_id": order.id,
-                "user_id": order.user_id,
-                "total_price": str(order.total_price),
-                "items": [
-                    {
-                        "product_id": item["product_id"],
-                        "quantity": item["quantity"],
-                    }
-                    for item in order_items
-                ],
-            },
-        )
-
+            create_outbox_event(
+                "order.created",
+                {
+                    "order_id": order.id,
+                    "user_id": order.user_id,
+                    "total_price": str(
+                        order.total_price
+                    ),
+                    "items": [
+                        {
+                            "product_id": item[
+                                "product_id"
+                            ],
+                            "quantity": item[
+                                "quantity"
+                            ],
+                        }
+                        for item in order_items
+                    ],
+                },
+            )
         return Response(
             {
                 "order_id": order.id,

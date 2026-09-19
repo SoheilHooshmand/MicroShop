@@ -7,8 +7,8 @@ import pika
 
 from django.db import transaction
 
-from inventory.events import create_outbox_event
-from inventory.models import (
+from .events import create_outbox_event
+from .models import (
     Inventory,
     ProcessedEvent,
 )

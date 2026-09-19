@@ -7,8 +7,8 @@ import pika
 
 from django.db import transaction
 
-from orders.events import create_outbox_event
-from orders.models import (
+from .events import create_outbox_event
+from .models import (
     Order,
     ProcessedEvent,
 )
@@ -103,7 +103,6 @@ def mark_event_processed(
 
     ProcessedEvent.objects.create(
         event_id=event_id,
-        event_type=event_type,
     )
 
 
@@ -132,7 +131,6 @@ def handle_event(event):
 
         ProcessedEvent.objects.create(
             event_id=event_id,
-            event_type=event_type,
         )
 
         data = event.get(

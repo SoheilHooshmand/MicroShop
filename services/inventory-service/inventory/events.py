@@ -1,46 +1,85 @@
 import json
 import os
-import uuid
+from datetime import datetime, timezone
 
 import pika
+
+from inventory.models import OutboxEvent
 
 
 EXCHANGE_NAME = "microshop.events"
 
 
-def publish_event(event_type, data):
+def create_outbox_event(
+    event_type,
+    data,
+):
+
+    return OutboxEvent.objects.create(
+        event_type=event_type,
+        payload={
+            "event_id": None,
+            "event_type": event_type,
+            "occurred_at": datetime.now(
+                timezone.utc
+            ).isoformat(),
+            "source": "inventory-service",
+            "retry_count": 0,
+            "data": data,
+        },
+    )
+
+
+def get_connection():
 
     rabbitmq_url = os.getenv(
         "RABBITMQ_URL",
         "amqp://microshop:rabbitmq_password@localhost:5672/%2F",
     )
 
-    event = {
-        "event_id": str(uuid.uuid4()),
-        "event_type": event_type,
-        "data": data,
-    }
-
-    connection = pika.BlockingConnection(
-        pika.URLParameters(rabbitmq_url)
+    return pika.BlockingConnection(
+        pika.URLParameters(
+            rabbitmq_url
+        )
     )
 
-    channel = connection.channel()
 
-    channel.exchange_declare(
-        exchange=EXCHANGE_NAME,
-        exchange_type="topic",
-        durable=True,
-    )
+def publish_to_rabbitmq(event):
 
-    channel.basic_publish(
-        exchange=EXCHANGE_NAME,
-        routing_key=event_type,
-        body=json.dumps(event),
-        properties=pika.BasicProperties(
-            delivery_mode=pika.DeliveryMode.Persistent,
-            content_type="application/json",
-        ),
-    )
+    connection = get_connection()
 
-    connection.close()
+    try:
+
+        channel = connection.channel()
+
+        channel.exchange_declare(
+            exchange=EXCHANGE_NAME,
+            exchange_type="topic",
+            durable=True,
+        )
+
+        channel.confirm_delivery()
+
+        payload = event.payload.copy()
+
+        payload["event_id"] = str(
+            event.event_id
+        )
+
+        channel.basic_publish(
+            exchange=EXCHANGE_NAME,
+            routing_key=event.event_type,
+            body=json.dumps(payload),
+            properties=pika.BasicProperties(
+                delivery_mode=2,
+                content_type="application/json",
+                message_id=str(
+                    event.event_id
+                ),
+            ),
+            mandatory=True,
+        )
+
+    finally:
+
+        connection.close()

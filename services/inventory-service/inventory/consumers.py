@@ -103,7 +103,6 @@ def handle_event(event):
 
         ProcessedEvent.objects.create(
             event_id=event_id,
-            event_type=event_type,
         )
 
         data = event.get(

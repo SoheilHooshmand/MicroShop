@@ -320,6 +320,29 @@ services:
       rabbitmq:
         condition: service_healthy
 
+
+  inventory-outbox:
+    build:
+      context: ./services/inventory-service
+
+    container_name: microshop-inventory-outbox
+
+    command: >
+      sh -c "
+      python manage.py publish_outbox
+      "
+
+    env_file:
+      - services/inventory-service/.env
+
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+
   order-consumer:
     build:
       context: ./services/order-service
@@ -339,6 +362,28 @@ services:
     depends_on:
       order-db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  order-outbox:
+    build:
+      context: ./services/order-service
+
+    container_name: microshop-order-outbox
+
+    command: >
+      sh -c "
+      python manage.py publish_outbox
+      "
+
+    env_file:
+      - services/order-service/.env
+
+
+    depends_on:
+      order-db:
+        condition: service_healthy
+
       rabbitmq:
         condition: service_healthy
 
@@ -363,6 +408,29 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+
+
+  payment-outbox:
+    build:
+      context: ./services/payment-service
+
+    container_name: microshop-payment-outbox
+
+    command: >
+      sh -c "
+      python manage.py publish_outbox
+      "
+
+    env_file:
+      - services/payment-service/.env
+
+    depends_on:
+      payment-db:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
 
   notification-consumer:
     build:

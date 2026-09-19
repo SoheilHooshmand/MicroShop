@@ -96,7 +96,6 @@ def handle_event(event):
 
         ProcessedEvent.objects.create(
             event_id=event_id,
-            event_type=event_type,
         )
 
         if event_type != "payment.requested":

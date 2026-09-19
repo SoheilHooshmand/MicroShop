@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pika
 
-from inventory.models import OutboxEvent
+from .models import OutboxEvent
 
 
 EXCHANGE_NAME = "microshop.events"

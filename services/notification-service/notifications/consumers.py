@@ -12,6 +12,10 @@ from .models import (
     ProcessedEvent,
 )
 
+from .tasks import (
+    send_notification,
+)
+
 
 EXCHANGE_NAME = "microshop.events"
 
@@ -108,40 +112,104 @@ def handle_event(event):
             {},
         )
 
+        notification = None
+
         if event_type == "order.created":
 
             user_id = data["user_id"]
 
-            title = "Order Created"
-
-            message = (
-                f"Order #{data['order_id']} "
-                f"has been created."
-            )
-
-            entity_id = data[
-                "order_id"
-            ]
-
-            notification_type = (
-                Notification.TYPE_ORDER_CREATED
+            notification = Notification.objects.create(
+                user_id=user_id,
+                notification_type=(
+                    Notification.TYPE_ORDER_CREATED
+                ),
+                channel=(
+                    Notification.CHANNEL_IN_APP
+                ),
+                title="Order Created",
+                message=(
+                    f"Order #{data['order_id']} "
+                    f"has been created."
+                ),
+                entity_id=data["order_id"],
             )
 
         elif event_type == "payment.succeeded":
 
-            # این event فعلاً user_id ندارد.
-            # در نسخه بعدی می‌توانیم user_id
-            # را در payment.succeeded اضافه کنیم.
+            user_id = data.get(
+                "user_id"
+            )
 
-            return
+            if not user_id:
+                return
+
+            notification = Notification.objects.create(
+                user_id=user_id,
+                notification_type=(
+                    Notification.TYPE_PAYMENT_SUCCESS
+                ),
+                channel=(
+                    Notification.CHANNEL_IN_APP
+                ),
+                title="Payment Successful",
+                message=(
+                    f"Payment for order "
+                    f"#{data['order_id']} "
+                    f"was successful."
+                ),
+                entity_id=data["order_id"],
+            )
 
         elif event_type == "payment.failed":
 
-            return
+            user_id = data.get(
+                "user_id"
+            )
+
+            if not user_id:
+                return
+
+            notification = Notification.objects.create(
+                user_id=user_id,
+                notification_type=(
+                    Notification.TYPE_PAYMENT_FAILED
+                ),
+                channel=(
+                    Notification.CHANNEL_IN_APP
+                ),
+                title="Payment Failed",
+                message=(
+                    f"Payment for order "
+                    f"#{data['order_id']} "
+                    f"failed."
+                ),
+                entity_id=data["order_id"],
+            )
 
         elif event_type == "order.cancelled":
 
-            return
+            user_id = data.get(
+                "user_id"
+            )
+
+            if not user_id:
+                return
+
+            notification = Notification.objects.create(
+                user_id=user_id,
+                notification_type=(
+                    Notification.TYPE_ORDER_CANCELLED
+                ),
+                channel=(
+                    Notification.CHANNEL_IN_APP
+                ),
+                title="Order Cancelled",
+                message=(
+                    f"Order #{data['order_id']} "
+                    f"was cancelled."
+                ),
+                entity_id=data["order_id"],
+            )
 
         else:
 
@@ -149,17 +217,14 @@ def handle_event(event):
                 f"Unknown event: {event_type}"
             )
 
-        Notification.objects.create(
-            user_id=user_id,
-            notification_type=notification_type,
-            channel=Notification.CHANNEL_IN_APP,
-            title=title,
-            message=message,
-            entity_id=entity_id,
-        )
-
         ProcessedEvent.objects.create(
             event_id=event_id,
+        )
+
+    if notification:
+
+        send_notification.delay(
+            notification.id
         )
 
 

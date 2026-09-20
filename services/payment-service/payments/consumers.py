@@ -134,7 +134,6 @@ def handle_event(event):
 
                 return
 
-        # شبیه‌سازی پرداخت
         payment.status = (
             Payment.STATUS_SUCCESS
         )
@@ -155,6 +154,7 @@ def handle_event(event):
             "payment.succeeded",
             {
                 "order_id": order_id,
+                "user_id": user_id,
                 "payment_id": payment.id,
                 "amount": str(
                     payment.amount

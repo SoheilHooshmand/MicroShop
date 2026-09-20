@@ -454,6 +454,88 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  redis:
+    image: redis:7-alpine
+    container_name: microshop-redis
+
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes"
+      ]
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis_data:/data
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "ping"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  notification-worker:
+    build:
+      context: ./services/notification-service
+
+    container_name: microshop-notification-worker
+
+    command:
+      [
+        "celery",
+        "-A",
+        "config",
+        "worker",
+        "--loglevel=INFO",
+        "--concurrency=2"
+      ]
+
+    env_file:
+      - services/notification-service/.env
+
+    depends_on:
+
+      notification-db:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+
+  notification-beat:
+    build:
+      context: ./services/notification-service
+
+    container_name: microshop-notification-beat
+
+    command:
+      [
+        "celery",
+        "-A",
+        "config",
+        "beat",
+        "--loglevel=INFO"
+      ]
+
+    env_file:
+      - services/notification-service/.env
+
+    depends_on:
+
+      notification-db:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
 volumes:
   auth_postgres_data:
   catalog_postgres_data:
@@ -462,3 +544,4 @@ volumes:
   payment_postgres_data:
   notification_postgres_data:
   rabbitmq_data:
+  redis_data:

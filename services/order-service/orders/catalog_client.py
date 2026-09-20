@@ -13,7 +13,7 @@ class CatalogClient:
     def get_product(self, product_id):
         url = (
             f"{self.base_url}/api/catalog/products/"
-            f"{product_id}"
+            f"{product_id}/"
         )
 
         try:

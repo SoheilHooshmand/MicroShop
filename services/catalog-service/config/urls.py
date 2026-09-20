@@ -15,39 +15,43 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path
 
-from rest_framework.routers import DefaultRouter
 from products.views import (
-    CategoryViewSet,
-    ProductViewSet,
+    CategoryListCreateView,
+    CategoryDetailView,
+    ProductListCreateView,
+    ProductDetailView,
     health_check,
 )
-
-router = DefaultRouter()
-
-router.register(
-    "categories",
-    CategoryViewSet,
-    basename="category",
-)
-
-router.register(
-    "products",
-    ProductViewSet,
-    basename="product",
-)
-
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 
+    # Categories
     path(
-        "api/catalog/",
-        include(router.urls)
+        "api/catalog/categories/",
+        CategoryListCreateView.as_view(),
+        name="category-list",
     ),
     path(
-        "health/",
-        health_check,
+        "api/catalog/categories/<int:pk>/",
+        CategoryDetailView.as_view(),
+        name="category-detail",
     ),
+
+    # Products
+    path(
+        "api/catalog/products/",
+        ProductListCreateView.as_view(),
+        name="product-list",
+    ),
+    path(
+        "api/catalog/products/<int:pk>/",
+        ProductDetailView.as_view(),
+        name="product-detail",
+    ),
+
+    # Health
+    path("health/", health_check, name="health-check"),
 ]

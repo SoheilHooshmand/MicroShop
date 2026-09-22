@@ -33,7 +33,13 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
+    "gateway",
+    "auth-service",
     "catalog-service",
+    "inventory-service",
+    "order-service",
+    "payment-service",
+    "notification-service",
 ]
 
 
@@ -48,6 +54,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     "rest_framework",
+    "rest_framework_simplejwt",
+
     "products",
 ]
 
@@ -159,3 +167,14 @@ CACHES = {
         },
     }
 }
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "products.authentication.GatewayAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+}
+
+ORDER_SERVICE_TOKEN = os.getenv("ORDER_SERVICE_TOKEN")

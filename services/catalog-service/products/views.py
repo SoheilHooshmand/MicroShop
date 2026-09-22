@@ -4,6 +4,11 @@ from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.generics import RetrieveAPIView
+
+from .permissions import IsAdminUser, IsOrderService
+from .authentication import ServiceAuthentication
 
 from .cache import (
     CATEGORY_CACHE_TTL,
@@ -26,7 +31,14 @@ def health_check(request):
     })
 
 
-class CategoryListCreateView(APIView):
+class ReadAuthWriteAdminMixin:
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        return [IsAdminUser()]
+
+
+class CategoryListCreateView(ReadAuthWriteAdminMixin, APIView):
 
     def get(self, request):
         query_string = request.META.get("QUERY_STRING", "")
@@ -62,7 +74,7 @@ class CategoryListCreateView(APIView):
         )
 
 
-class CategoryDetailView(APIView):
+class CategoryDetailView(ReadAuthWriteAdminMixin, APIView):
 
     def get(self, request, pk):
         cache_key = category_cache_key(pk)
@@ -146,7 +158,7 @@ class CategoryDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class ProductListCreateView(APIView):
+class ProductListCreateView(ReadAuthWriteAdminMixin, APIView):
 
     def get(self, request):
         query_string = request.META.get("QUERY_STRING", "")
@@ -188,7 +200,7 @@ class ProductListCreateView(APIView):
         )
 
 
-class ProductDetailView(APIView):
+class ProductDetailView(ReadAuthWriteAdminMixin, APIView):
 
     def get(self, request, pk):
         cache_key = product_cache_key(pk)
@@ -274,3 +286,17 @@ class ProductDetailView(APIView):
         invalidate_product_cache(pk)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class InternalProductDetailView(RetrieveAPIView):
+
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+
+    authentication_classes = [
+        ServiceAuthentication,
+    ]
+
+    permission_classes = [
+        IsOrderService,
+    ]

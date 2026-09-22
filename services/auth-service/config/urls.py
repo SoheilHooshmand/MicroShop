@@ -26,6 +26,7 @@ from users.views import (
     RegistrationView,
     MeView,
     health_check,
+    VerifyTokenView,
 )
 
 urlpatterns = [
@@ -55,6 +56,12 @@ urlpatterns = [
         "health/",
         health_check,
         name="health",
+    ),
+
+    path(
+        "api/auth/verify/",
+        VerifyTokenView.as_view(),
+        name="verify-token",
     ),
 
 ]

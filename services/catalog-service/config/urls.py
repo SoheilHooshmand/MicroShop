@@ -23,6 +23,7 @@ from products.views import (
     ProductListCreateView,
     ProductDetailView,
     health_check,
+    InternalProductDetailView,
 )
 
 urlpatterns = [
@@ -50,6 +51,12 @@ urlpatterns = [
         "api/catalog/products/<int:pk>/",
         ProductDetailView.as_view(),
         name="product-detail",
+    ),
+
+    path(
+        "internal/catalog/products/<int:pk>/",
+        InternalProductDetailView.as_view(),
+        name="internal-product-detail",
     ),
 
     # Health

@@ -29,8 +29,17 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "gateway",
+    "auth-service",
+    "catalog-service",
+    "inventory-service",
+    "order-service",
+    "payment-service",
+    "notification-service",
+]
 
 # Application definition
 
@@ -43,6 +52,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'rest_framework',
+
     'notifications',
 ]
 

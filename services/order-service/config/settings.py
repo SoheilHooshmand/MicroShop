@@ -29,8 +29,17 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "gateway",
+    "auth-service",
+    "catalog-service",
+    "inventory-service",
+    "order-service",
+    "payment-service",
+    "notification-service",
+]
 
 # Application definition
 
@@ -43,6 +52,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'rest_framework',
+    "rest_framework_simplejwt",
+
     'orders'
 ]
 
@@ -156,3 +167,15 @@ PAYMENT_SERVICE_URL = os.getenv(
     "PAYMENT_SERVICE_URL",
     "http://127.0.0.1:8004",
 )
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "orders.authentication.GatewayAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+}
+
+
+CATALOG_SERVICE_TOKEN = os.getenv("CATALOG_SERVICE_TOKEN")

@@ -40,8 +40,10 @@ services:
     env_file:
       - services/auth-service/.env
 
-    ports:
-      - "8000:8000"
+#    ports:
+#      - "8000:8000"
+    expose:
+      - "8000"
 
     depends_on:
       auth_db:
@@ -87,8 +89,10 @@ services:
     env_file:
       - services/catalog-service/.env
 
-    ports:
-      - "8001:8000"
+#    ports:
+#      - "8001:8000"
+    expose:
+      - "8000"
 
     depends_on:
       catalog_db:
@@ -136,8 +140,10 @@ services:
     env_file:
       - ./services/inventory-service/.env
 
-    ports:
-      - "8002:8000"
+#    ports:
+#      - "8002:8000"
+    expose:
+      - "8000"
 
     depends_on:
       inventory-db:
@@ -175,8 +181,10 @@ services:
     env_file:
       - services/order-service/.env
 
-    ports:
-      - "8003:8000"
+#    ports:
+#      - "8003:8000"
+    expose:
+      - "8000"
 
     depends_on:
       order-db:
@@ -218,8 +226,10 @@ services:
     env_file:
       - services/payment-service/.env
 
-    ports:
-      - "8004:8000"
+#    ports:
+#      - "8004:8000"
+    expose:
+      - "8000"
 
     depends_on:
       payment-db:
@@ -268,8 +278,10 @@ services:
     env_file:
       - services/notification-service/.env
 
-    ports:
-      - "8005:8000"
+#    ports:
+#      - "8005:8000"
+    expose:
+      - "8000"
 
     depends_on:
       notification-db:
@@ -535,6 +547,37 @@ services:
 
       redis:
         condition: service_healthy
+
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: microshop-gateway
+
+    ports:
+      - "80:80"
+
+    volumes:
+      - ./gateway/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+    depends_on:
+      auth-service:
+        condition: service_started
+
+      catalog-service:
+        condition: service_started
+
+      inventory-service:
+        condition: service_started
+
+      order-service:
+        condition: service_started
+
+      payment-service:
+        condition: service_started
+
+      notification-service:
+        condition: service_started
+
+    restart: unless-stopped
 
 volumes:
   auth_postgres_data:

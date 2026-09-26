@@ -1,0 +1,164 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: notification-beat
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: notification-beat
+
+  template:
+    metadata:
+      labels:
+        app: notification-beat
+
+    spec:
+
+      initContainers:
+
+        # Wait for Redis
+        - name: wait-for-redis
+          image: redis:7-alpine
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              echo "Waiting for Redis..."
+
+              until redis-cli -h redis -p 6379 ping | grep -q PONG; do
+                echo "Redis is not ready yet..."
+                sleep 2
+              done
+
+              echo "Redis is ready."
+
+        # Wait for notification-service
+        - name: wait-for-notification-service
+          image: curlimages/curl:8.10.1
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              echo "Waiting for notification-service..."
+
+              until curl -fsS http://notification-service:8000/health/; do
+                echo "Notification service is not ready yet..."
+                sleep 2
+              done
+
+              echo "Notification service is ready."
+
+      containers:
+
+        - name: notification-beat
+
+          image: microshop-notification-service:1.0.0
+
+          imagePullPolicy: Never
+
+          command:
+            - celery
+
+          args:
+            - -A
+            - config
+            - beat
+            - --loglevel=INFO
+
+          env:
+
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: notification-config
+                  key: DATABASE_HOST
+
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: notification-config
+                  key: DATABASE_PORT
+
+            - name: DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: notification-db-secret
+                  key: POSTGRES_DB
+
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: notification-db-secret
+                  key: POSTGRES_USER
+
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: notification-db-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: notification-app-secret
+                  key: SECRET_KEY
+
+            - name: ALLOWED_HOSTS
+              valueFrom:
+                configMapKeyRef:
+                  name: notification-config
+                  key: ALLOWED_HOSTS
+
+            - name: DJANGO_SETTINGS_MODULE
+              valueFrom:
+                configMapKeyRef:
+                  name: notification-config
+                  key: DJANGO_SETTINGS_MODULE
+
+            - name: CELERY_BROKER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: notification-config
+                  key: CELERY_BROKER_URL
+
+            - name: CELERY_RESULT_BACKEND
+              valueFrom:
+                configMapKeyRef:
+                  name: notification-config
+                  key: CELERY_RESULT_BACKEND
+
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  celery -A config inspect ping
+
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 3
+
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  celery -A config inspect ping
+
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3

@@ -10,3 +10,4 @@ data:
   DJANGO_DEBUG: "False"
   DJANGO_SETTINGS_MODULE: config.settings
   ALLOWED_HOSTS: "localhost,127.0.0.1,auth-service,auth-db,gateway,catalog-service,inventory-service,order-service,payment-service,notification-service,.local"
+  REDIS_CACHE_URL: "redis://redis:6379/2"

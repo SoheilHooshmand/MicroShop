@@ -69,6 +69,12 @@ spec:
                   name: catalog-config
                   key: ALLOWED_HOSTS
 
+            - name: REDIS_CACHE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: catalog-config
+                  key: REDIS_CACHE_URL
+
             - name: DJANGO_SETTINGS_MODULE
               valueFrom:
                 configMapKeyRef:

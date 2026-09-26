@@ -12,3 +12,6 @@ venv/
 
 k8s/auth/secret.yaml
 k8s/auth/app-secret.yaml
+
+k8s/catalog/secret.yaml
+k8s/catalog/app-secret.yaml

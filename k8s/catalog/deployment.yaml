@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: catalog-service
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: catalog-service
+
+  template:
+    metadata:
+      labels:
+        app: catalog-service
+
+    spec:
+      containers:
+        - name: catalog-service
+
+          image: microshop-catalog-service:1.0.0
+          imagePullPolicy: Never
+
+          ports:
+            - containerPort: 8000
+
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: catalog-config
+                  key: DATABASE_HOST
+
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: catalog-config
+                  key: DATABASE_PORT
+
+            - name: DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: catalog-db-secret
+                  key: POSTGRES_DB
+
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: catalog-db-secret
+                  key: POSTGRES_USER
+
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: catalog-db-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: catalog-app-secret
+                  key: SECRET_KEY
+
+            - name: ALLOWED_HOSTS
+              valueFrom:
+                configMapKeyRef:
+                  name: catalog-config
+                  key: ALLOWED_HOSTS
+
+            - name: DJANGO_SETTINGS_MODULE
+              valueFrom:
+                configMapKeyRef:
+                  name: catalog-config
+                  key: DJANGO_SETTINGS_MODULE
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              echo "Waiting for catalog-db..."
+
+              until python -c "
+              import socket
+              socket.create_connection(('catalog-db', 5432), timeout=2)
+              "; do
+                echo "catalog-db is not ready yet..."
+                sleep 2
+              done
+
+              echo "catalog-db is reachable."
+
+              python manage.py migrate
+
+              exec gunicorn config.wsgi:application \
+                --bind 0.0.0.0:8000 \
+                --workers 3
+
+          readinessProbe:
+            httpGet:
+              path: /health/
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: catalog-service
+
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+
+          livenessProbe:
+            httpGet:
+              path: /health/
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: catalog-service
+
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5

@@ -1,0 +1,173 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: auth-service
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: auth-service
+
+  template:
+    metadata:
+      labels:
+        app: auth-service
+
+    spec:
+
+      # --------------------------------------------------
+      # Wait for PostgreSQL
+      # --------------------------------------------------
+      initContainers:
+        - name: wait-for-auth-db
+          image: postgres:16
+
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-config
+                  key: DATABASE_HOST
+
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-config
+                  key: DATABASE_PORT
+
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: auth-db-secret
+                  key: POSTGRES_DB
+
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: auth-db-secret
+                  key: POSTGRES_USER
+
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-db-secret
+                  key: POSTGRES_PASSWORD
+
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for PostgreSQL at ${DATABASE_HOST}:${DATABASE_PORT}..."
+
+              until pg_isready \
+                -h "$DATABASE_HOST" \
+                -p "$DATABASE_PORT" \
+                -U "$POSTGRES_USER" \
+                -d "$POSTGRES_DB"
+              do
+                echo "PostgreSQL is not ready yet..."
+                sleep 2
+              done
+
+              echo "PostgreSQL is ready!"
+
+      # --------------------------------------------------
+      # Auth service
+      # --------------------------------------------------
+      containers:
+        - name: auth-service
+
+          image: microshop-auth-service:1.0.0
+          imagePullPolicy: Never
+
+          ports:
+            - containerPort: 8000
+
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-config
+                  key: DATABASE_HOST
+
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-config
+                  key: DATABASE_PORT
+
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: auth-db-secret
+                  key: POSTGRES_DB
+
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: auth-db-secret
+                  key: POSTGRES_USER
+
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-db-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: auth-app-secret
+                  key: SECRET_KEY
+
+            - name: ALLOWED_HOSTS
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-config
+                  key: ALLOWED_HOSTS
+
+            - name: DJANGO_SETTINGS_MODULE
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-config
+                  key: DJANGO_SETTINGS_MODULE
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              python manage.py migrate &&
+              gunicorn config.wsgi:application \
+                --bind 0.0.0.0:8000 \
+                --workers 3
+
+          readinessProbe:
+            httpGet:
+              path: /health/
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: auth-service
+
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+
+          livenessProbe:
+            httpGet:
+              path: /health/
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: auth-service
+
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5

@@ -9,3 +9,6 @@ venv/
 .idea/
 
 .env
+
+k8s/auth/secret.yaml
+k8s/auth/app-secret.yaml

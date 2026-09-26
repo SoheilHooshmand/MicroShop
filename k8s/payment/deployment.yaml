@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: payment-service
+
+  template:
+    metadata:
+      labels:
+        app: payment-service
+
+    spec:
+      containers:
+        - name: payment-service
+
+          image: microshop-payment-service:1.0.0
+          imagePullPolicy: Never
+
+          ports:
+            - containerPort: 8000
+
+          env:
+
+            # -----------------------------
+            # Database
+            # -----------------------------
+
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: payment-config
+                  key: DATABASE_HOST
+
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: payment-config
+                  key: DATABASE_PORT
+
+            - name: DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: payment-db-secret
+                  key: POSTGRES_DB
+
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: payment-db-secret
+                  key: POSTGRES_USER
+
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: payment-db-secret
+                  key: POSTGRES_PASSWORD
+
+            # -----------------------------
+            # Django
+            # -----------------------------
+
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: payment-app-secret
+                  key: SECRET_KEY
+
+            - name: ALLOWED_HOSTS
+              valueFrom:
+                configMapKeyRef:
+                  name: payment-config
+                  key: ALLOWED_HOSTS
+
+            - name: DJANGO_SETTINGS_MODULE
+              valueFrom:
+                configMapKeyRef:
+                  name: payment-config
+                  key: DJANGO_SETTINGS_MODULE
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              echo "Waiting for payment-db..."
+
+              until python -c "
+              import socket
+              socket.create_connection(('payment-db', 5432), timeout=2)
+              "; do
+                echo "payment-db is not ready yet..."
+                sleep 2
+              done
+
+              echo "payment-db is reachable."
+
+              python manage.py migrate && \
+              exec gunicorn config.wsgi:application \
+                --bind 0.0.0.0:8000 \
+                --workers 3
+
+          # -----------------------------
+          # Readiness
+          # -----------------------------
+
+          readinessProbe:
+            httpGet:
+              path: /health/
+              port: 8000
+
+              httpHeaders:
+                - name: Host
+                  value: payment-service
+
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+
+          # -----------------------------
+          # Liveness
+          # -----------------------------
+
+          livenessProbe:
+            httpGet:
+              path: /health/
+              port: 8000
+
+              httpHeaders:
+                - name: Host
+                  value: payment-service
+
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5

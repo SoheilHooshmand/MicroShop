@@ -21,3 +21,6 @@ k8s/inventory/secret.yaml
 
 k8s/order/secret.yaml
 k8s/order/app-secret.yaml
+
+k8s/payment/secret.yaml
+k8s/payment/app-secret.yaml

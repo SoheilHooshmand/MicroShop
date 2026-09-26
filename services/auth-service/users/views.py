@@ -10,7 +10,8 @@ from .serializers import RegistrationSerializer, UserSerializer
 
 def health_check(request):
     return JsonResponse({
-        "status": "ok"
+        "status": "ok",
+        "service": "auth-service",
     })
 
 class RegistrationView(generics.CreateAPIView):

@@ -80,7 +80,7 @@ spec:
       containers:
         - name: auth-service
 
-          image: microshop-auth-service:1.0.0
+          image: microshop-auth-service:1.0.1
           imagePullPolicy: Never
 
           ports:

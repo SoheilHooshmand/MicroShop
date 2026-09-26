@@ -1,0 +1,209 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: gateway
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: gateway
+
+  template:
+    metadata:
+      labels:
+        app: gateway
+
+    spec:
+
+      initContainers:
+
+        # ==========================================
+        # Wait for Auth
+        # ==========================================
+
+        - name: wait-for-auth
+          image: curlimages/curl:8.10.1
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              echo "Waiting for auth-service..."
+
+              until curl -fsS http://auth-service:8000/health/; do
+                echo "auth-service is not ready yet..."
+                sleep 2
+              done
+
+              echo "auth-service is ready."
+
+
+        # ==========================================
+        # Wait for Catalog
+        # ==========================================
+
+        - name: wait-for-catalog
+          image: curlimages/curl:8.10.1
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              echo "Waiting for catalog-service..."
+
+              until curl -fsS http://catalog-service:8000/health/; do
+                echo "catalog-service is not ready yet..."
+                sleep 2
+              done
+
+              echo "catalog-service is ready."
+
+
+        # ==========================================
+        # Wait for Inventory
+        # ==========================================
+
+        - name: wait-for-inventory
+          image: curlimages/curl:8.10.1
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              echo "Waiting for inventory-service..."
+
+              until curl -fsS http://inventory-service:8000/health/; do
+                echo "inventory-service is not ready yet..."
+                sleep 2
+              done
+
+              echo "inventory-service is ready."
+
+
+        # ==========================================
+        # Wait for Order
+        # ==========================================
+
+        - name: wait-for-order
+          image: curlimages/curl:8.10.1
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              echo "Waiting for order-service..."
+
+              until curl -fsS http://order-service:8000/health/; do
+                echo "order-service is not ready yet..."
+                sleep 2
+              done
+
+              echo "order-service is ready."
+
+
+        # ==========================================
+        # Wait for Payment
+        # ==========================================
+
+        - name: wait-for-payment
+          image: curlimages/curl:8.10.1
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              echo "Waiting for payment-service..."
+
+              until curl -fsS http://payment-service:8000/health/; do
+                echo "payment-service is not ready yet..."
+                sleep 2
+              done
+
+              echo "payment-service is ready."
+
+
+        # ==========================================
+        # Wait for Notification
+        # ==========================================
+
+        - name: wait-for-notification
+          image: curlimages/curl:8.10.1
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              echo "Waiting for notification-service..."
+
+              until curl -fsS http://notification-service:8000/health/; do
+                echo "notification-service is not ready yet..."
+                sleep 2
+              done
+
+              echo "notification-service is ready."
+
+
+      # ==========================================
+      # NGINX
+      # ==========================================
+
+      containers:
+
+        - name: gateway
+
+          image: nginx:1.27-alpine
+
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+
+          readinessProbe:
+            httpGet:
+              path: /health/auth/
+              port: 80
+
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health/auth/
+              port: 80
+
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+      volumes:
+
+        - name: nginx-config
+
+          configMap:
+            name: gateway-nginx-config

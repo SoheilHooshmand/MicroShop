@@ -1,0 +1,433 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: gateway-nginx-config
+
+data:
+  nginx.conf: |
+    events {
+        worker_connections 1024;
+    }
+
+
+    http {
+        include       /etc/nginx/mime.types;
+        default_type  application/octet-stream;
+
+        sendfile           on;
+        keepalive_timeout  65;
+        client_max_body_size 10M;
+
+
+        # --------------------------------------------------
+        # Logging
+        # --------------------------------------------------
+
+        log_format main '$remote_addr - $remote_user [$time_local] '
+                        '"$request" $status $body_bytes_sent '
+                        '"$http_referer" "$http_user_agent" '
+                        'upstream=$upstream_addr';
+
+        access_log /var/log/nginx/access.log main;
+        error_log  /var/log/nginx/error.log warn;
+
+
+        # ==================================================
+        # Upstreams
+        # ==================================================
+
+        upstream auth_service {
+            server auth-service:8000;
+        }
+
+        upstream catalog_service {
+            server catalog-service:8000;
+        }
+
+        upstream inventory_service {
+            server inventory-service:8000;
+        }
+
+        upstream order_service {
+            server order-service:8000;
+        }
+
+        upstream payment_service {
+            server payment-service:8000;
+        }
+
+        upstream notification_service {
+            server notification-service:8000;
+        }
+
+
+        # ==================================================
+        # SERVER
+        # ==================================================
+
+        server {
+
+            listen 80;
+
+            server_name _;
+
+
+            # ==============================================
+            # JWT Authentication
+            # ==============================================
+
+            location = /_auth {
+
+                internal;
+
+                proxy_pass http://auth_service/api/auth/verify/;
+
+                proxy_method GET;
+
+                proxy_pass_request_body off;
+                proxy_set_header Content-Length "";
+
+                proxy_set_header Host              auth-service;
+
+                proxy_set_header Authorization     $http_authorization;
+
+                proxy_set_header X-Original-URI    $request_uri;
+                proxy_set_header X-Original-Method $request_method;
+
+                proxy_set_header X-Real-IP         $remote_addr;
+                proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host  $host;
+
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+            }
+
+
+            # ==============================================
+            # Auth - Public
+            # ==============================================
+
+            location /api/auth/register/ {
+
+                proxy_pass http://auth_service;
+
+                proxy_set_header Host              auth-service;
+                proxy_set_header X-Real-IP         $remote_addr;
+                proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host  $host;
+
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+            }
+
+
+            location /api/auth/login/ {
+
+                proxy_pass http://auth_service;
+
+                proxy_set_header Host              auth-service;
+                proxy_set_header X-Real-IP         $remote_addr;
+                proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host  $host;
+
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+            }
+
+
+            location /api/auth/refresh/ {
+
+                proxy_pass http://auth_service;
+
+                proxy_set_header Host              auth-service;
+                proxy_set_header X-Real-IP         $remote_addr;
+                proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host  $host;
+
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+            }
+
+
+            # ==============================================
+            # Auth - Protected
+            # ==============================================
+
+            location /api/auth/ {
+
+                auth_request /_auth;
+
+                auth_request_set $user_id    $upstream_http_x_user_id;
+                auth_request_set $user_email $upstream_http_x_user_email;
+                auth_request_set $user_staff $upstream_http_x_user_staff;
+                auth_request_set $user_admin $upstream_http_x_user_admin;
+
+                proxy_set_header X-User-ID     $user_id;
+                proxy_set_header X-User-Email  $user_email;
+                proxy_set_header X-User-Staff  $user_staff;
+                proxy_set_header X-User-Admin  $user_admin;
+
+                proxy_set_header Authorization $http_authorization;
+
+                proxy_set_header Host              auth-service;
+                proxy_set_header X-Real-IP         $remote_addr;
+                proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host  $host;
+
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+
+                proxy_pass http://auth_service;
+            }
+
+
+            # ==============================================
+            # Catalog
+            # ==============================================
+
+            location /api/catalog/ {
+
+                auth_request /_auth;
+
+                auth_request_set $user_id    $upstream_http_x_user_id;
+                auth_request_set $user_email $upstream_http_x_user_email;
+                auth_request_set $user_staff $upstream_http_x_user_staff;
+                auth_request_set $user_admin $upstream_http_x_user_admin;
+
+                proxy_set_header X-User-ID     $user_id;
+                proxy_set_header X-User-Email  $user_email;
+                proxy_set_header X-User-Staff  $user_staff;
+                proxy_set_header X-User-Admin  $user_admin;
+
+                proxy_set_header Authorization $http_authorization;
+
+                proxy_set_header Host              catalog-service;
+                proxy_set_header X-Real-IP         $remote_addr;
+                proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host  $host;
+
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+
+                proxy_pass http://catalog_service;
+            }
+
+
+            # ==============================================
+            # Inventory
+            # ==============================================
+
+            location /api/inventory/ {
+
+                auth_request /_auth;
+
+                auth_request_set $user_id    $upstream_http_x_user_id;
+                auth_request_set $user_email $upstream_http_x_user_email;
+                auth_request_set $user_staff $upstream_http_x_user_staff;
+                auth_request_set $user_admin $upstream_http_x_user_admin;
+
+                proxy_set_header X-User-ID     $user_id;
+                proxy_set_header X-User-Email  $user_email;
+                proxy_set_header X-User-Staff  $user_staff;
+                proxy_set_header X-User-Admin  $user_admin;
+
+                proxy_set_header Authorization $http_authorization;
+
+                proxy_set_header Host              inventory-service;
+                proxy_set_header X-Real-IP         $remote_addr;
+                proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host  $host;
+
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+
+                proxy_pass http://inventory_service;
+            }
+
+
+            # ==============================================
+            # Orders
+            # ==============================================
+
+            location /api/orders/ {
+
+                auth_request /_auth;
+
+                auth_request_set $user_id    $upstream_http_x_user_id;
+                auth_request_set $user_email $upstream_http_x_user_email;
+                auth_request_set $user_staff $upstream_http_x_user_staff;
+                auth_request_set $user_admin $upstream_http_x_user_admin;
+
+                proxy_set_header X-User-ID     $user_id;
+                proxy_set_header X-User-Email  $user_email;
+                proxy_set_header X-User-Staff  $user_staff;
+                proxy_set_header X-User-Admin  $user_admin;
+
+                proxy_set_header Authorization $http_authorization;
+
+                proxy_set_header Host              order-service;
+                proxy_set_header X-Real-IP         $remote_addr;
+                proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host  $host;
+
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+
+                proxy_pass http://order_service;
+            }
+
+
+            # ==============================================
+            # Payments
+            # ==============================================
+
+            location /api/payments/ {
+
+                auth_request /_auth;
+
+                auth_request_set $user_id    $upstream_http_x_user_id;
+                auth_request_set $user_email $upstream_http_x_user_email;
+                auth_request_set $user_staff $upstream_http_x_user_staff;
+                auth_request_set $user_admin $upstream_http_x_user_admin;
+
+                proxy_set_header X-User-ID     $user_id;
+                proxy_set_header X-User-Email  $user_email;
+                proxy_set_header X-User-Staff  $user_staff;
+                proxy_set_header X-User-Admin  $user_admin;
+
+                proxy_set_header Authorization $http_authorization;
+
+                proxy_set_header Host              payment-service;
+                proxy_set_header X-Real-IP         $remote_addr;
+                proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host  $host;
+
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+
+                proxy_pass http://payment_service;
+            }
+
+
+            # ==============================================
+            # Notifications
+            # ==============================================
+
+            location /api/notifications/ {
+
+                auth_request /_auth;
+
+                auth_request_set $user_id    $upstream_http_x_user_id;
+                auth_request_set $user_email $upstream_http_x_user_email;
+                auth_request_set $user_staff $upstream_http_x_user_staff;
+                auth_request_set $user_admin $upstream_http_x_user_admin;
+
+                proxy_set_header X-User-ID     $user_id;
+                proxy_set_header X-User-Email  $user_email;
+                proxy_set_header X-User-Staff  $user_staff;
+                proxy_set_header X-User-Admin  $user_admin;
+
+                proxy_set_header Authorization $http_authorization;
+
+                proxy_set_header Host              notification-service;
+                proxy_set_header X-Real-IP         $remote_addr;
+                proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Forwarded-Host  $host;
+
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+
+                proxy_pass http://notification_service;
+            }
+
+
+            # ==============================================
+            # Health Checks
+            # ==============================================
+
+            location = /health/auth/ {
+
+                proxy_set_header Host auth-service;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+
+                proxy_pass http://auth_service/health/;
+            }
+
+
+            location = /health/catalog/ {
+
+                proxy_set_header Host catalog-service;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+
+                proxy_pass http://catalog_service/health/;
+            }
+
+
+            location = /health/inventory/ {
+
+                proxy_set_header Host inventory-service;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+
+                proxy_pass http://inventory_service/health/;
+            }
+
+
+            location = /health/order/ {
+
+                proxy_set_header Host order-service;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+
+                proxy_pass http://order_service/health/;
+            }
+
+
+            location = /health/payment/ {
+
+                proxy_set_header Host payment-service;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+
+                proxy_pass http://payment_service/health/;
+            }
+
+
+            location = /health/notification/ {
+
+                proxy_set_header Host notification-service;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+
+                proxy_pass http://notification_service/health/;
+            }
+
+
+            # ==============================================
+            # Default
+            # ==============================================
+
+            location / {
+                return 404;
+            }
+        }
+    }

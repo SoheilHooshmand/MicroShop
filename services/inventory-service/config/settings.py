@@ -27,18 +27,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-nwi7hi3mi0e4s9-i^3z3u3_bb-2$83q!l(kafc1_&atr39!zm)'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", False)
 
 ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "gateway",
-    "auth-service",
-    "catalog-service",
-    "inventory-service",
-    "order-service",
-    "payment-service",
-    "notification-service",
+    host.strip()
+    for host in os.getenv("ALLOWED_HOSTS", "").split(",")
+    if host.strip()
 ]
 
 # Application definition

@@ -2,25 +2,25 @@ apiVersion: apps/v1
 kind: Deployment
 
 metadata:
-  name: catalog-service
+  name: inventory-service
 
 spec:
   replicas: 1
 
   selector:
     matchLabels:
-      app: catalog-service
+      app: inventory-service
 
   template:
     metadata:
       labels:
-        app: catalog-service
+        app: inventory-service
 
     spec:
       containers:
-        - name: catalog-service
+        - name: inventory-service
 
-          image: microshop-catalog-service:1.0.0
+          image: microshop-inventory-service:1.0.0
           imagePullPolicy: Never
 
           ports:
@@ -30,56 +30,50 @@ spec:
             - name: DATABASE_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: catalog-config
+                  name: inventory-config
                   key: DATABASE_HOST
 
             - name: DATABASE_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: catalog-config
+                  name: inventory-config
                   key: DATABASE_PORT
 
             - name: DATABASE_NAME
               valueFrom:
                 secretKeyRef:
-                  name: catalog-db-secret
+                  name: inventory-db-secret
                   key: POSTGRES_DB
 
             - name: DATABASE_USER
               valueFrom:
                 secretKeyRef:
-                  name: catalog-db-secret
+                  name: inventory-db-secret
                   key: POSTGRES_USER
 
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: catalog-db-secret
+                  name: inventory-db-secret
                   key: POSTGRES_PASSWORD
 
             - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: catalog-app-secret
+                  name: inventory-app-secret
                   key: SECRET_KEY
 
             - name: ALLOWED_HOSTS
               valueFrom:
                 configMapKeyRef:
-                  name: catalog-config
+                  name: inventory-config
                   key: ALLOWED_HOSTS
 
             - name: DJANGO_SETTINGS_MODULE
               valueFrom:
                 configMapKeyRef:
-                  name: catalog-config
+                  name: inventory-config
                   key: DJANGO_SETTINGS_MODULE
-
-            - name: ORDER_SERVICE_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: catalog-app-secret
-                  key: ORDER_SERVICE_TOKEN
 
           command:
             - sh
@@ -87,20 +81,19 @@ spec:
 
           args:
             - |
-              echo "Waiting for catalog-db..."
+              echo "Waiting for inventory-db..."
 
               until python -c "
               import socket
-              socket.create_connection(('catalog-db', 5432), timeout=2)
+              socket.create_connection(('inventory-db', 5432), timeout=2)
               "; do
-                echo "catalog-db is not ready yet..."
+                echo "inventory-db is not ready yet..."
                 sleep 2
               done
 
-              echo "catalog-db is reachable."
+              echo "inventory-db is reachable."
 
-              python manage.py migrate
-
+              python manage.py migrate && \
               exec gunicorn config.wsgi:application \
                 --bind 0.0.0.0:8000 \
                 --workers 3
@@ -111,7 +104,7 @@ spec:
               port: 8000
               httpHeaders:
                 - name: Host
-                  value: catalog-service
+                  value: inventory-service
 
             initialDelaySeconds: 10
             periodSeconds: 10
@@ -124,7 +117,7 @@ spec:
               port: 8000
               httpHeaders:
                 - name: Host
-                  value: catalog-service
+                  value: inventory-service
 
             initialDelaySeconds: 30
             periodSeconds: 20

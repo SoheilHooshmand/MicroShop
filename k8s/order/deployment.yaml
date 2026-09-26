@@ -1,0 +1,151 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: order-service
+
+  template:
+    metadata:
+      labels:
+        app: order-service
+
+    spec:
+      containers:
+        - name: order-service
+
+          image: microshop-order-service:1.0.0
+          imagePullPolicy: Never
+
+          ports:
+            - containerPort: 8000
+
+          env:
+            # -----------------------------
+            # Database
+            # -----------------------------
+
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: order-config
+                  key: DATABASE_HOST
+
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: order-config
+                  key: DATABASE_PORT
+
+            - name: DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: order-db-secret
+                  key: POSTGRES_DB
+
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: order-db-secret
+                  key: POSTGRES_USER
+
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: order-db-secret
+                  key: POSTGRES_PASSWORD
+
+            # -----------------------------
+            # Django
+            # -----------------------------
+
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: order-app-secret
+                  key: SECRET_KEY
+
+            - name: ALLOWED_HOSTS
+              valueFrom:
+                configMapKeyRef:
+                  name: order-config
+                  key: ALLOWED_HOSTS
+
+            - name: DJANGO_SETTINGS_MODULE
+              valueFrom:
+                configMapKeyRef:
+                  name: order-config
+                  key: DJANGO_SETTINGS_MODULE
+
+            - name: CATALOG_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: order-app-secret
+                  key: CATALOG_SERVICE_TOKEN
+
+            - name: CATALOG_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: order-config
+                  key: CATALOG_SERVICE_URL
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              echo "Waiting for order-db..."
+
+              until python -c "
+              import socket
+              socket.create_connection(('order-db', 5432), timeout=2)
+              "; do
+                echo "order-db is not ready yet..."
+                sleep 2
+              done
+
+              echo "order-db is reachable."
+
+              python manage.py migrate && \
+              exec gunicorn config.wsgi:application \
+                --bind 0.0.0.0:8000 \
+                --workers 3
+
+          # -----------------------------
+          # Readiness
+          # -----------------------------
+
+          readinessProbe:
+            httpGet:
+              path: /health/
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: order-service
+
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+
+          # -----------------------------
+          # Liveness
+          # -----------------------------
+
+          livenessProbe:
+            httpGet:
+              path: /health/
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: order-service
+
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5

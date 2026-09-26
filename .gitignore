@@ -15,3 +15,6 @@ k8s/auth/app-secret.yaml
 
 k8s/catalog/secret.yaml
 k8s/catalog/app-secret.yaml
+
+k8s/inventory/app-secret.yaml
+k8s/inventory/secret.yaml

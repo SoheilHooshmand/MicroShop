@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-consumer
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: inventory-consumer
+
+  template:
+    metadata:
+      labels:
+        app: inventory-consumer
+
+    spec:
+      containers:
+        - name: inventory-consumer
+          image: microshop-inventory-service:1.0.2
+          imagePullPolicy: Never
+
+          command:
+            - sh
+            - -c
+
+          args:
+            - |
+              echo "Waiting for RabbitMQ..."
+
+              until python -c "
+              import os
+              import pika
+
+              url = os.environ['RABBITMQ_URL']
+              connection = pika.BlockingConnection(
+                  pika.URLParameters(url)
+              )
+              connection.close()
+              "; do
+                echo "RabbitMQ is not ready yet..."
+                sleep 2
+              done
+
+              echo "RabbitMQ is ready."
+
+              exec python manage.py consume_events
+
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: inventory-config
+                  key: DATABASE_HOST
+
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: inventory-config
+                  key: DATABASE_PORT
+
+            - name: DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: inventory-db-secret
+                  key: POSTGRES_DB
+
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: inventory-db-secret
+                  key: POSTGRES_USER
+
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: inventory-db-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: inventory-app-secret
+                  key: SECRET_KEY
+
+            - name: ALLOWED_HOSTS
+              valueFrom:
+                configMapKeyRef:
+                  name: inventory-config
+                  key: ALLOWED_HOSTS
+
+            - name: DJANGO_SETTINGS_MODULE
+              valueFrom:
+                configMapKeyRef:
+                  name: inventory-config
+                  key: DJANGO_SETTINGS_MODULE
+
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: inventory-app-secret
+                  key: RABBITMQ_URL
+
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - python manage.py check
+
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - python manage.py check
+
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
